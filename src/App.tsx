@@ -51,7 +51,10 @@ import {
   FileText,
   ArrowUpRight,
   Globe,
-  Check
+  Check,
+  RefreshCw,
+  Github,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -351,6 +354,128 @@ const VoiceTeacherPopup = ({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+};
+
+interface GenerationSection {
+  name: string;
+  progress: number;
+  status: 'pending' | 'writing' | 'completed';
+  pageRange: string;
+}
+
+const ThesisGenerationOverlay = ({ 
+  isOpen, 
+  sections, 
+  overallProgress,
+  topic
+}: { 
+  isOpen: boolean; 
+  sections: GenerationSection[];
+  overallProgress: number;
+  topic: string;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[150] bg-cream/95 backdrop-blur-xl flex flex-col p-6 overflow-y-auto"
+    >
+      <div className="max-w-4xl mx-auto w-full space-y-8 py-12">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rust/10 text-rust text-[10px] font-black uppercase tracking-widest animate-pulse">
+            <Sparkles size={14} />
+            AI Research Engine Active
+          </div>
+          <h2 className="text-3xl font-black text-dark tracking-tight leading-tight">
+            Generating Your 110-Page Thesis
+          </h2>
+          <p className="text-muted font-medium max-w-md mx-auto">
+            {topic}
+          </p>
+        </div>
+
+        {/* Overall Progress */}
+        <div className="neo-card p-8 bg-white/50 border-white/40 space-y-4">
+          <div className="flex justify-between items-end">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-muted uppercase tracking-widest">Overall Completion</p>
+              <p className="text-4xl font-black text-rust">{Math.round(overallProgress)}%</p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-[10px] font-black text-muted uppercase tracking-widest">Target Length</p>
+              <p className="text-xl font-black text-dark">110 Pages</p>
+            </div>
+          </div>
+          <div className="h-4 bg-white/50 rounded-full overflow-hidden border border-white/40 shadow-inner">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${overallProgress}%` }}
+              className="h-full bg-gradient-to-r from-rust to-accent-pink shadow-lg"
+            />
+          </div>
+        </div>
+
+        {/* Sections Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sections.map((section, i) => (
+            <motion.div
+              key={section.name}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={cn(
+                "neo-card p-5 border-white/40 transition-all relative overflow-hidden",
+                section.status === 'writing' ? "bg-white ring-2 ring-rust/20 scale-[1.02]" : "bg-white/40",
+                section.status === 'completed' ? "bg-green-50/30" : ""
+              )}
+            >
+              {/* Numerical Tag */}
+              <div className="absolute top-0 right-0 p-2">
+                <span className="text-[8px] font-black text-muted/30 uppercase">CH {i + 1}</span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-dark truncate pr-8">{section.name}</h4>
+                  {section.status === 'completed' && <Check size={14} className="text-green-500" />}
+                </div>
+                
+                <div className="flex items-center justify-between text-[9px] font-bold text-muted uppercase tracking-wider">
+                  <span>{section.status}</span>
+                  <span>{section.pageRange}</span>
+                </div>
+
+                <div className="h-1.5 bg-white/50 rounded-full overflow-hidden border border-white/20">
+                  <motion.div 
+                    animate={{ width: `${section.progress}%` }}
+                    className={cn(
+                      "h-full transition-all duration-500",
+                      section.status === 'writing' ? "bg-rust animate-pulse" : "bg-green-500"
+                    )}
+                  />
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-dark">{section.progress}%</span>
+                  {section.status === 'writing' && (
+                    <motion.span 
+                      animate={{ opacity: [0, 1, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                      className="text-[8px] font-black text-rust uppercase"
+                    >
+                      Writing...
+                    </motion.span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
@@ -722,6 +847,8 @@ export default function App() {
   const [generatingTopics, setGeneratingTopics] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<ThesisTopic | null>(null);
   const [generatingThesis, setGeneratingThesis] = useState(false);
+  const [generationSections, setGenerationSections] = useState<GenerationSection[]>([]);
+  const [overallProgress, setOverallProgress] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -849,16 +976,34 @@ export default function App() {
   const handleGenerateThesis = async (topic: ThesisTopic) => {
     if (!user) return;
     setGeneratingThesis(true);
+    setOverallProgress(0);
+    
+    const sectionNames = [
+      'Abstract', 'Introduction', 'Literature Review', 'Theoretical Background',
+      'Dataset and Preprocessing', 'Methodology', 'System Design', 'Experimental Setup',
+      'Results and Analysis', 'Discussion', 'Conclusion', 'Future Scope', 
+      'References'
+    ];
+
+    const initialSections: GenerationSection[] = sectionNames.map((name, i) => ({
+      name,
+      progress: 0,
+      status: 'pending',
+      pageRange: `Pages ${i * 8 + 1}-${(i + 1) * 8}`
+    }));
+    setGenerationSections(initialSections);
+
     try {
-      const sections = [
-        'Abstract', 'Introduction', 'Literature Review', 'Theoretical Background',
-        'Dataset and Preprocessing', 'Methodology', 'System Design', 'Experimental Setup',
-        'Results and Analysis', 'Discussion', 'Conclusion', 'Future Scope', 
-        'References'
-      ];
       const generatedSections: Record<string, string> = {};
       
-      for (const section of sections) {
+      for (let i = 0; i < sectionNames.length; i++) {
+        const section = sectionNames[i];
+        
+        // Update status to writing
+        setGenerationSections(prev => prev.map((s, idx) => 
+          idx === i ? { ...s, status: 'writing', progress: 10 } : s
+        ));
+
         // Humanizer prompt: Ask for natural, deep, academic writing
         const prompt = `Topic: ${topic.title}. Section: ${section}. 
         Write this section in a highly professional, human-like academic tone. 
@@ -866,8 +1011,24 @@ export default function App() {
         Aim for significant detail (simulating 8-10 pages of content). 
         Avoid robotic structures; use varied sentence lengths and deep critical analysis.`;
         
+        // Simulate progress while waiting for AI
+        const progressInterval = setInterval(() => {
+          setGenerationSections(prev => prev.map((s, idx) => 
+            idx === i && s.progress < 90 ? { ...s, progress: s.progress + 2 } : s
+          ));
+        }, 1000);
+
         const text = await generateThesisSection(section, prompt);
+        clearInterval(progressInterval);
+
         generatedSections[section] = text;
+
+        // Update status to completed
+        setGenerationSections(prev => prev.map((s, idx) => 
+          idx === i ? { ...s, status: 'completed', progress: 100 } : s
+        ));
+        
+        setOverallProgress(((i + 1) / sectionNames.length) * 100);
       }
 
       const thesisData = {
@@ -1041,6 +1202,39 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Generation Status Card (Persistent) */}
+              {generatingThesis && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="neo-card p-6 bg-rust text-white border-none shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-20">
+                    <Sparkles size={40} />
+                  </div>
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Thesis Generation Active</p>
+                        <h3 className="text-lg font-black tracking-tight leading-tight line-clamp-1">{selectedTopic?.title}</h3>
+                      </div>
+                      <span className="text-2xl font-black">{Math.round(overallProgress)}%</span>
+                    </div>
+                    <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${overallProgress}%` }}
+                        className="h-full bg-white shadow-lg"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <span>Writing Chapters...</span>
+                      <span>Target: 110 Pages</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Search Bar */}
               <div className="relative group">
                 <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
@@ -1122,6 +1316,38 @@ export default function App() {
                   <Plus size={20} />
                 </NeumorphicButton>
               </div>
+
+              {generatingThesis && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="neo-card p-5 bg-white border-rust/20 shadow-lg space-y-3"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-rust/10 rounded-lg flex items-center justify-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                        >
+                          <RefreshCw size={14} className="text-rust" />
+                        </motion.div>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-rust uppercase tracking-widest">Generating Thesis</p>
+                        <p className="text-xs font-bold text-dark truncate max-w-[180px]">{selectedTopic?.title}</p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-black text-rust">{Math.round(overallProgress)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-cream rounded-full overflow-hidden">
+                    <motion.div 
+                      animate={{ width: `${overallProgress}%` }}
+                      className="h-full bg-rust"
+                    />
+                  </div>
+                </motion.div>
+              )}
 
               {theses.length === 0 ? (
                 <div className="neo-card text-center py-10 space-y-6 relative overflow-hidden">
@@ -1481,6 +1707,37 @@ export default function App() {
                   <div className="absolute top-0 right-0 w-32 h-32 bg-rust/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-rust/10 transition-colors" />
                   <div className="flex items-center gap-4 relative z-10">
                     <div className="p-4 bg-rust/10 rounded-2xl">
+                      <Smartphone className="text-rust" size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-dark">Android App Export</h3>
+                      <p className="text-[10px] text-muted font-black uppercase tracking-widest">Build APK (thysis)</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted font-bold leading-relaxed relative z-10">
+                    Export your research companion as a native Android app. We've configured Capacitor and GitHub Actions to build your APK automatically.
+                  </p>
+                  <div className="space-y-4 relative z-10">
+                    <div className="p-4 bg-white/50 rounded-2xl border border-white/40 space-y-2">
+                      <div className="flex items-center gap-2 text-[10px] font-black text-dark uppercase tracking-widest">
+                        <Github size={14} /> GitHub Action Configured
+                      </div>
+                      <p className="text-[9px] text-muted font-bold">Your APK will be built as "thysis" via the configured CI/CD pipeline.</p>
+                    </div>
+                    <NeumorphicButton 
+                      onClick={() => window.open('https://github.com/features/actions', '_blank')}
+                      variant="premium" 
+                      className="w-full py-4 text-xs"
+                    >
+                      View Build Pipeline
+                    </NeumorphicButton>
+                  </div>
+                </div>
+
+                <div className="neo-card p-8 space-y-6 relative overflow-hidden group hero-gradient border-none">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rust/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-rust/10 transition-colors" />
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className="p-4 bg-rust/10 rounded-2xl">
                       <ImageIcon className="text-rust" size={28} />
                     </div>
                     <div>
@@ -1669,6 +1926,13 @@ export default function App() {
         onClose={() => setShowResources(false)} 
         user={user} 
         resources={resources}
+      />
+
+      <ThesisGenerationOverlay 
+        isOpen={generatingThesis}
+        sections={generationSections}
+        overallProgress={overallProgress}
+        topic={selectedTopic?.title || ''}
       />
     </div>
   );

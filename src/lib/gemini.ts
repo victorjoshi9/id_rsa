@@ -92,10 +92,12 @@ export async function generateSpeech(text: string) {
 }
 
 /**
- * Unified AI Caller with automatic fallback across multiple Gemini and NVIDIA models
+ * Unified AI Caller with automatic fallback across multiple Gemini and NVIDIA models.
+ * If a model provides a response that is too short, it tries another model for more detail.
  */
-async function unifiedChat(prompt: string, systemInstruction?: string) {
+async function unifiedChat(prompt: string, systemInstruction?: string, minLength: number = 100) {
   const geminiModels = [models.flash, models.pro];
+  let bestResponse = "";
   
   // Try Gemini models first
   for (const model of geminiModels) {
@@ -107,20 +109,22 @@ async function unifiedChat(prompt: string, systemInstruction?: string) {
           systemInstruction: systemInstruction
         }
       });
-      if (result.text) return result.text;
+      if (result.text) {
+        if (result.text.length >= minLength) return result.text;
+        bestResponse = result.text; // Keep it as fallback
+      }
     } catch (e) {
       console.warn(`Gemini ${model} failed, trying next...`, e);
     }
   }
 
-  console.warn("All Gemini models failed, trying NVIDIA/OpenRouter fallback...");
-    
-    // Try NVIDIA
-    if (CONFIG.nvidia.keys.length > 0) {
+  console.warn("Gemini models failed or insufficient, trying NVIDIA/OpenRouter fallback...");
+  
+  // Try NVIDIA
+  if (CONFIG.nvidia.keys.length > 0) {
+    for (const model of models.nvidia_models) {
       try {
         const key = getNextNvKey();
-        const model = models.nvidia_models[Math.floor(Math.random() * models.nvidia_models.length)];
-        
         const response = await fetch(`${CONFIG.nvidia.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -138,37 +142,46 @@ async function unifiedChat(prompt: string, systemInstruction?: string) {
         });
         const data = await response.json();
         if (data.choices && data.choices[0]) {
-          return data.choices[0].message.content;
+          const content = data.choices[0].message.content;
+          if (content.length >= minLength) return content;
+          if (content.length > bestResponse.length) bestResponse = content;
         }
       } catch (nvErr) {
-        console.warn("NVIDIA fallback failed", nvErr);
+        console.warn(`NVIDIA ${model} fallback failed`, nvErr);
       }
     }
+  }
 
-    // Try OpenRouter
-    if (CONFIG.openrouter.key) {
-      try {
-        const response = await fetch(`${CONFIG.openrouter.baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${CONFIG.openrouter.key}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "meta-llama/llama-3.1-8b-instruct:free",
-            messages: [
-              { role: "system", content: systemInstruction || "" },
-              { role: "user", content: prompt }
-            ]
-          })
-        });
-        const data = await response.json();
-        return data.choices[0].message.content;
-      } catch (orErr) {
-        console.error("OpenRouter fallback also failed", orErr);
+  // Try OpenRouter as last resort
+  if (CONFIG.openrouter.key) {
+    try {
+      const response = await fetch(`${CONFIG.openrouter.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${CONFIG.openrouter.key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "meta-llama/llama-3.1-8b-instruct:free",
+          messages: [
+            { role: "system", content: systemInstruction || "" },
+            { role: "user", content: prompt }
+          ]
+        })
+      });
+      const data = await response.json();
+      if (data.choices && data.choices[0]) {
+        const content = data.choices[0].message.content;
+        if (content.length >= minLength) return content;
+        if (content.length > bestResponse.length) bestResponse = content;
       }
+    } catch (orErr) {
+      console.error("OpenRouter fallback also failed", orErr);
     }
-    throw new Error("All AI models failed to respond.");
+  }
+
+  if (bestResponse) return bestResponse;
+  throw new Error("All AI models failed to respond.");
 }
 
 export async function generateThesisTopics(branch: string, keywords: string[], imageBase64?: string) {
@@ -206,6 +219,7 @@ export async function generateThesisSection(sectionName: string, context: string
      - Use deep technical explanations.
      - Include multiple paragraphs per sub-topic.
      - Describe complex algorithms in detail.
+     - Aim for at least 3000-4000 words for this specific section.
   2. HUMAN-LIKE WRITING: Avoid robotic or repetitive structures. Use varied vocabulary, critical thinking, and nuanced arguments.
   3. CITATIONS: You MUST use real academic sources. Reference:
      - Fan et al. (2019) "Road pothole extraction and safety warning in point clouds"
@@ -217,9 +231,9 @@ export async function generateThesisSection(sectionName: string, context: string
   4. TONE: Formal, academic, and authoritative.
   5. CONTENT: Include mathematical formulations (LaTeX style), architectural diagrams descriptions, and comparative tables where applicable.
   
-  Aim for 2500-3000 words for this specific section to ensure the total thesis reaches 110 pages.`;
+  This section must be exhaustive enough to contribute significantly to a 110-page total count.`;
   
-  return await unifiedChat(`Write the complete and exhaustive ${sectionName} for the thesis.\nContext: ${context}`, system);
+  return await unifiedChat(`Write the complete and exhaustive ${sectionName} for the thesis.\nContext: ${context}`, system, 5000);
 }
 
 export async function getTeacherResponse(prompt: string, studentName: string, history: any[]) {
