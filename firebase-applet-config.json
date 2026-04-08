@@ -2,7 +2,7 @@
   "projectId": "gen-lang-client-0181425024",
   "appId": "1:411354116989:web:03aa21864192716dc7d214",
   "apiKey": "AIzaSyBvaRVihKS7QO2NV5ri42RJ02UniDDFOqM",
-  "authDomain": "https://trifintech.vercel.app/",
+  "authDomain": "https://trifintech.vercel.app",
   "firestoreDatabaseId": "ai-studio-32da6c2c-08c6-4a69-8b9b-d075e7d605b4",
   "storageBucket": "gen-lang-client-0181425024.firebasestorage.app",
   "messagingSenderId": "411354116989",
