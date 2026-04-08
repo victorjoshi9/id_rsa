@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Thesis": {
+      "title": "Thesis",
+      "description": "A generated thesis project",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "branch": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "sections": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "branch"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A multi-turn conversation thread",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["user", "model"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/theses/{thesisId}": {
+      "schema": "Thesis",
+      "description": "Thesis project documents"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat conversation documents"
+    }
+  }
+}

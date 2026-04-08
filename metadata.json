@@ -1,0 +1,5 @@
+{
+  "name": "Thesis Studio AI",
+  "description": "An AI-powered research companion for MTech students with multi-model support and neumorphic design.",
+  "requestFramePermissions": ["microphone", "camera"]
+}

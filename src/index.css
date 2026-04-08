@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-ink: #0d0d0d;
+  --color-paper: #f5f0e8;
+  --color-cream: #faf7f2;
+  --color-rust: #b5451b;
+  --color-gold: #c4963a;
+  --color-muted: #7a7060;
+  --color-border: #d9d0c0;
+  --color-dark: #1a1510;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-ink font-sans overflow-x-hidden;
+  }
+}
+
+@utility neo-flat {
+  @apply bg-cream shadow-[8px_8px_16px_#d1cdc6,-8px_-8px_16px_#ffffff];
+}
+
+@utility neo-pressed {
+  @apply bg-cream shadow-[inset_8px_8px_16px_#d1cdc6,inset_-8px_-8px_16px_#ffffff];
+}
+
+@utility neo-btn {
+  @apply neo-flat active:neo-pressed transition-all duration-300 rounded-2xl px-6 py-4 font-semibold text-muted hover:text-rust;
+}
+
+@utility neo-card {
+  @apply neo-flat rounded-[2rem] p-8 border border-white/50;
+}
+
+@utility bottom-nav {
+  @apply fixed bottom-6 left-6 right-6 bg-cream/90 backdrop-blur-xl border border-white/50 h-20 flex items-center justify-around px-6 z-50 rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)];
+}
+
+@utility nav-item {
+  @apply flex flex-col items-center gap-1 text-muted/60 transition-all duration-300 hover:scale-110;
+}
+
+@utility nav-item-active {
+  @apply text-rust scale-110 font-bold;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}

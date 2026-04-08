@@ -1,0 +1,101 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required, email format)
+//   - displayName: string
+//   - photoURL: string
+//   - createdAt: timestamp
+//
+// Collection: theses
+// Document ID: {thesisId}
+// Fields:
+//   - userId: string (required)
+//   - title: string (required)
+//   - branch: string (required)
+//   - keywords: list of strings
+//   - sections: map
+//   - createdAt: timestamp
+//
+// Collection: chats
+// Document ID: {chatId}
+// Fields:
+//   - userId: string (required)
+//   - messages: list of maps (role, content, timestamp)
+//   - createdAt: timestamp
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email);
+    }
+
+    function isValidThesis(data) {
+      return data.keys().hasAll(['userId', 'title', 'branch']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.branch is string;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['userId']) &&
+             data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /theses/{thesisId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidThesis(request.resource.data);
+      allow update: if isDocOwner() && isValidThesis(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /chats/{chatId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+      allow update: if isDocOwner() && isValidChat(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}
