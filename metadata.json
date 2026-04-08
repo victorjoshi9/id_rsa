@@ -1,5 +1,5 @@
 {
-  "name": "Thesis Studio AI",
+  "name": "Thesis Studio : build by useless",
   "description": "An AI-powered research companion for MTech students with multi-model support and neumorphic design.",
   "requestFramePermissions": ["microphone", "camera"]
 }

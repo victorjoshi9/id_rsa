@@ -47,6 +47,47 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId"]
+    },
+    "ThesisTopic": {
+      "title": "ThesisTopic",
+      "description": "A suggested research topic",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "userId"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single chat message",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["sent", "read"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["role", "content", "timestamp", "userId"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "An academic resource",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "source": { "type": "string" },
+        "desc": { "type": "string" },
+        "content": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "userId"]
     }
   },
   "firestore": {
@@ -61,6 +102,18 @@
     "/chats/{chatId}": {
       "schema": "Chat",
       "description": "Chat conversation documents"
+    },
+    "/topics/{topicId}": {
+      "schema": "ThesisTopic",
+      "description": "Suggested research topics"
+    },
+    "/chatMessages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Individual chat messages"
+    },
+    "/resources/{resourceId}": {
+      "schema": "Resource",
+      "description": "Academic resources"
     }
   }
 }

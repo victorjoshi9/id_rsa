@@ -9,6 +9,7 @@
 //   - email: string (required, email format)
 //   - displayName: string
 //   - photoURL: string
+//   - role: string (admin/user)
 //   - createdAt: timestamp
 //
 // Collection: theses
@@ -21,11 +22,33 @@
 //   - sections: map
 //   - createdAt: timestamp
 //
-// Collection: chats
-// Document ID: {chatId}
+// Collection: topics
+// Document ID: {topicId}
 // Fields:
 //   - userId: string (required)
-//   - messages: list of maps (role, content, timestamp)
+//   - title: string (required)
+//   - description: string
+//   - type: string
+//   - tags: list of strings
+//   - createdAt: timestamp
+//
+// Collection: chatMessages
+// Document ID: {messageId}
+// Fields:
+//   - userId: string (required)
+//   - role: string (user/model)
+//   - content: string (required)
+//   - timestamp: string (required)
+//   - status: string (sent/read)
+//
+// Collection: resources
+// Document ID: {resourceId}
+// Fields:
+//   - userId: string (required)
+//   - title: string (required)
+//   - source: string
+//   - desc: string
+//   - content: string
 //   - createdAt: timestamp
 //
 // ===============================================================
@@ -49,6 +72,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "victorjoshi9@gmail.com" && request.auth.token.email_verified == true));
+    }
+
     function isValidEmail(email) {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
@@ -65,13 +94,27 @@ service cloud.firestore {
     function isValidThesis(data) {
       return data.keys().hasAll(['userId', 'title', 'branch']) &&
              data.userId == request.auth.uid &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 1000 &&
              data.branch is string;
     }
 
-    function isValidChat(data) {
-      return data.keys().hasAll(['userId']) &&
-             data.userId == request.auth.uid;
+    function isValidTopic(data) {
+      return data.keys().hasAll(['userId', 'title']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 1000;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['userId', 'role', 'content', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.role in ['user', 'model'] &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 10000;
+    }
+
+    function isValidResource(data) {
+      return data.keys().hasAll(['userId', 'title']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 1000;
     }
 
     // ===============================================================
@@ -79,23 +122,45 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
     }
 
     match /theses/{thesisId} {
-      allow read: if isDocOwner();
+      allow read: if isDocOwner() || isAdmin();
       allow create: if isAuthenticated() && isValidThesis(request.resource.data);
-      allow update: if isDocOwner() && isValidThesis(request.resource.data);
-      allow delete: if isDocOwner();
+      allow update: if (isDocOwner() && isValidThesis(request.resource.data)) || isAdmin();
+      allow delete: if isDocOwner() || isAdmin();
     }
 
+    match /topics/{topicId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidTopic(request.resource.data);
+      allow update: if (isDocOwner() && isValidTopic(request.resource.data)) || isAdmin();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /chatMessages/{messageId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
+      allow update: if (isDocOwner() && isValidChatMessage(request.resource.data)) || isAdmin();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /resources/{resourceId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidResource(request.resource.data);
+      allow update: if (isDocOwner() && isValidResource(request.resource.data)) || isAdmin();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    // Legacy chats collection (if still used)
     match /chats/{chatId} {
-      allow read: if isDocOwner();
-      allow create: if isAuthenticated() && isValidChat(request.resource.data);
-      allow update: if isDocOwner() && isValidChat(request.resource.data);
-      allow delete: if isDocOwner();
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isDocOwner() || isAdmin();
+      allow delete: if isDocOwner() || isAdmin();
     }
   }
 }
